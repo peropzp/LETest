@@ -1,0 +1,67 @@
+with  
+f as (
+    select t as ft, machineId from test1.fendt order by machineId, ft
+),
+w as (
+  select date_diff(datetime, timestamp('1970-01-01 00:00:00'), second) as dt, unit_id from `test1.wialon` order by unit_id, dt
+),
+mjoined as (
+    select f.machineid, f.ft, w.dt, w.unit_id
+    from f
+    inner join test1.fendtWialon as fw on fw.machineId = f.machineId
+    inner join w on w.unit_id = fw.unit_id and round(w.dt / 10) = round(f.ft / 10)
+),
+fwjoin as 
+    (select mjoined.machineId, mjoined.unit_id, mjoined.dt, max(mjoined.ft) as ft
+    from mjoined 
+    group by mjoined.machineId, mjoined.unit_id, mjoined.dt
+    order by mjoined.machineId, mjoined.unit_id, mjoined.dt
+),
+joined as
+    (select w.*, f.*
+    from test1.fendt as f, test1.wialon as w, fwjoin
+    where f.machineId = fwjoin.machineID and f.t = fwjoin.ft 
+    and w.unit_id = fwjoin.unit_id and w.datetime = cast( PARSE_DATETIME('%s', CAST(TRUNC(fwjoin.dt) AS STRING)) as timestamp)
+),
+prevnext as (
+  select unit_id, datetime, gpsLongitude, gpsLatitude,
+  LEAD(gpsLongitude) OVER (PARTITION BY unit_id ORDER BY datetime) AS nextGps,
+  LAG(gpsLongitude) OVER (PARTITION BY unit_id ORDER BY datetime) AS prevGps,
+  from joined
+  order by unit_id, datetime
+),
+startstop as (
+  select unit_id, datetime, gpsLongitude, gpsLatitude,
+  case 
+      when (gpsLongitude is not null and prevgps is null) then 'start'
+      when (gpsLongitude is not null and nextgps is null) then 'stop'
+  end as running
+  from prevnext
+  where (gpsLongitude is not null and prevgps is null)
+        or (gpsLongitude is not null and nextgps is null)
+  order by unit_id, datetime
+),
+intervals as (
+  select unit_id, datetime as startDateTime, running as startState, gpsLongitude as startLongitude, gpsLatitude as startLatitude,
+        Lead(datetime) over (PARTITION BY unit_id ORDER BY datetime) AS stopDateTime,
+        Lead(running) over (PARTITION BY unit_id ORDER BY datetime) AS stopState,
+        Lead(gpsLongitude) over (PARTITION BY unit_id ORDER BY datetime) AS stopLongitude,
+        Lead(gpsLatitude) over (PARTITION BY unit_id ORDER BY datetime) AS stopLatitude
+  from startstop
+),
+fixedIntervals as (
+  select * from intervals where startState = 'start' and stopState = 'stop'
+),
+IntervalsWithGps as (
+  select i.unit_id, i.startDateTime, i.StopDateTime, i.startLongitude, i.startLatitude, j.datetime, j.gpsLongitude, j.gpsLatitude
+  from fixedIntervals as i, joined as j
+  where i.unit_id = j.unit_id and j.datetime >=i.startDateTime and j.datetime <= i.stopDateTime
+  order by unit_id, i.startDateTime, j.datetime 
+)
+
+select unit_id, startDateTime, stopDateTime, startLongitude, startLatitude,
+concat('POLYGON((',string_agg(concat(gpsLongitude, ' ', gpsLatitude), ',' order by datetime), ',', startLongitude, ' ', startLatitude, '))') as poly
+from intervalsWithGps
+group by unit_id, startDateTime, stopDateTime, startLongitude, startLatitude
+limit 1000
+
