@@ -1,4 +1,5 @@
-create table test1.polygons as
+
+create or replace table test1.polygons as
 with  
 f as (
     select t as ft, machineId from test1.fendt order by machineId, ft
@@ -19,28 +20,36 @@ fwjoin as
     order by mjoined.machineId, mjoined.unit_id, mjoined.dt
 ),
 joined as
-    (select w.*, f.*
+    (select w.unit_id, w.dateTime, w.gpsLatitude, w.gpsLongitude, f.machineId
     from test1.fendt as f, test1.wialon as w, fwjoin
     where f.machineId = fwjoin.machineID and f.t = fwjoin.ft 
     and w.unit_id = fwjoin.unit_id and w.datetime = cast( PARSE_DATETIME('%s', CAST(TRUNC(fwjoin.dt) AS STRING)) as timestamp)
+    and  w.gpsLatitude is not null and w.gpsLongitude is not null
 ),
 prevnext as (
-  select unit_id, datetime, gpsLongitude, gpsLatitude,
-  LEAD(gpsLongitude) OVER (PARTITION BY unit_id ORDER BY datetime) AS nextGps,
-  LAG(gpsLongitude) OVER (PARTITION BY unit_id ORDER BY datetime) AS prevGps,
+  select unit_id, machineId, datetime, gpsLongitude, gpsLatitude,
+  LEAD(gpsLongitude) OVER (PARTITION BY unit_id ORDER BY datetime) AS nextGpsLongitude,
+  LAG(gpsLongitude) OVER (PARTITION BY unit_id ORDER BY datetime) AS prevGpsLongitude,
+  LEAD(gpsLatitude) OVER (PARTITION BY unit_id ORDER BY datetime) AS nextGpsLatitude,
+  LAG(gpsLatitude) OVER (PARTITION BY unit_id ORDER BY datetime) AS prevGpsLatitude,
   from joined
   order by unit_id, datetime
 ),
-startstop as (
-  select unit_id, datetime, gpsLongitude, gpsLatitude,
+addStartStop as (
+  select unit_id, machineId, datetime, gpsLongitude, gpsLatitude,
   case 
-      when (gpsLongitude is not null and prevgps is null) then 'start'
-      when (gpsLongitude is not null and nextgps is null) then 'stop'
+      when (abs(gpsLongitude * 1000 - prevGpsLongitude * 1000) >1) then 'start'
+      when (abs(gpsLatitude * 1000 - prevGpsLatitude * 1000)>1) then 'start'
+      when (abs(gpsLongitude * 1000 - nextGpsLongitude * 1000)>1) then 'stop'
+      when (abs(gpsLatitude * 1000 - nextGpsLatitude * 1000)>1) then 'stop'
+      else ''
   end as running
   from prevnext
-  where (gpsLongitude is not null and prevgps is null)
-        or (gpsLongitude is not null and nextgps is null)
   order by unit_id, datetime
+),
+startStop as (
+  select * from addStartStop
+  where running = 'start' or running = 'stop'
 ),
 intervals as (
   select unit_id, datetime as startDateTime, running as startState, gpsLongitude as startLongitude, gpsLatitude as startLatitude,
@@ -58,10 +67,19 @@ IntervalsWithGps as (
   from fixedIntervals as i, joined as j
   where i.unit_id = j.unit_id and j.datetime >=i.startDateTime and j.datetime <= i.stopDateTime
   order by unit_id, i.startDateTime, j.datetime 
+), 
+joinedStrings as (
+  select unit_id, startDateTime, stopDateTime, startLongitude, startLatitude, count(*) cnt,
+    concat('POLYGON((',string_agg(concat(gpsLongitude, ' ', gpsLatitude), ',' order by datetime), ',', startLongitude, ' ', startLatitude, '))') as poly,
+    concat('LINESTRING(',string_agg(concat(gpsLongitude, ' ', gpsLatitude), ',' order by datetime), ')') as multiline
+  from intervalsWithGps
+  group by unit_id, startDateTime, stopDateTime, startLongitude, startLatitude
 )
-select unit_id, startDateTime, stopDateTime, startLongitude, startLatitude,
-concat('POLYGON((',string_agg(concat(gpsLongitude, ' ', gpsLatitude), ',' order by datetime), ',', startLongitude, ' ', startLatitude, '))') as poly,
-st_geogfromtext(concat('LINESTRING(',string_agg(concat(gpsLongitude, ' ', gpsLatitude), ',' order by datetime), ')')) as multiline
-from intervalsWithGps
-group by unit_id, startDateTime, stopDateTime, startLongitude, startLatitude
+select unit_id, startDateTime, stopDateTime, startLongitude, startLatitude, cnt,
+    st_geogfromtext(poly, make_valid => TRUE) as poly,
+    st_geogfromtext(multiline, make_valid => TRUE) as multiline,
+    st_length(st_geogfromtext(multiline,make_valid => TRUE)) as len
+from joinedStrings
+where cnt>10
 
+limit 1000
