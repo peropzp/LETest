@@ -32,16 +32,20 @@ prevnext as (
   LAG(gpsLongitude) OVER (PARTITION BY unit_id ORDER BY datetime) AS prevGpsLongitude,
   LEAD(gpsLatitude) OVER (PARTITION BY unit_id ORDER BY datetime) AS nextGpsLatitude,
   LAG(gpsLatitude) OVER (PARTITION BY unit_id ORDER BY datetime) AS prevGpsLatitude,
+  LEAD(datetime) OVER (PARTITION BY unit_id ORDER BY datetime) AS nextDatetime,
+  LAG(datetime) OVER (PARTITION BY unit_id ORDER BY datetime) AS prevDatetime
   from joined
   order by unit_id, datetime
 ),
 addStartStop as (
   select unit_id, machineId, datetime, gpsLongitude, gpsLatitude,
   case 
-      when (abs(gpsLongitude * 1000 - prevGpsLongitude * 1000) >1) then 'start'
-      when (abs(gpsLatitude * 1000 - prevGpsLatitude * 1000)>1) then 'start'
-      when (abs(gpsLongitude * 1000 - nextGpsLongitude * 1000)>1) then 'stop'
-      when (abs(gpsLatitude * 1000 - nextGpsLatitude * 1000)>1) then 'stop'
+      when (abs(gpsLongitude * 500 - prevGpsLongitude * 500) >1) then 'start'
+      when (abs(gpsLatitude * 500 - prevGpsLatitude * 500)>1) then 'start'
+      when (abs(gpsLongitude * 500 - nextGpsLongitude * 500)>1) then 'stop'
+      when (abs(gpsLatitude * 500 - nextGpsLatitude * 500)>1) then 'stop'
+      when (abs(date_diff(datetime, prevDatetime, second))>1200) then 'start'
+      when (abs(date_diff(datetime, nextDatetime, second))>1200) then 'stop'
       else ''
   end as running
   from prevnext
