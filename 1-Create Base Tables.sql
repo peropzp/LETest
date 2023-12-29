@@ -55,6 +55,7 @@ CREATE or replace TABLE LETestDataset1.joinedData
   Speed INT64,
   Altitude INT64,
   Course INT64,
+  TimeInSeconds INT64,
   ###########################3
   TotalWorkingHours FLOAT64,  #TOTAL_VEHICLE_HOURS
   Engine_rpm FLOAT64, #engineSpeed
