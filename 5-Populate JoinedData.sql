@@ -1,5 +1,6 @@
-insert into LETestDataset1.joinedData
+delete from LETestDataset1.joinedData where 1=1;
 
+insert into LETestDataset1.joinedData
 with  
   f as (select timestamp as ft, machineId from LETestDataset1.fendt order by machineId, ft),
   t as (select date_diff(datetime, timestamp('1970-01-01 00:00:00'), second) as tt, SerialNumber as machineId from LETestDataset1.telematics order by machineId, tt),
@@ -123,4 +124,5 @@ select
   null 
 from LETestDataset1.telematics as t, LETestDataset1.wialon as w, twjoin
 where t.SerialNumber = twjoin.machineID and date_diff(t.datetime, timestamp('1970-01-01 00:00:00'), SECOND) = twjoin.tt 
-and w.unit_id = twjoin.unit_id and w.datetime = cast( PARSE_DATETIME('%s', CAST(TRUNC(twjoin.wt) AS STRING)) as timestamp)
+and w.unit_id = twjoin.unit_id and w.datetime = cast( PARSE_DATETIME('%s', CAST(TRUNC(twjoin.wt) AS STRING)) as timestamp);
+
