@@ -1,9 +1,12 @@
 CREATE or replace TABLE `LETestDataset1.telematics`
 (
   DateTime TIMESTAMP,
-  SerialNumber STRING,
+  MachineId STRING,
   GpsLongitude FLOAT64,
   GpsLatitude FLOAT64,
+  Speed INT64,
+  Altitude INT64,
+  Course INT64,
   TotalWorkingHours FLOAT64,
   Engine_rpm FLOAT64,
   EngineLoad FLOAT64,
