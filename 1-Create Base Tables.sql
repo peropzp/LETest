@@ -1,12 +1,9 @@
 CREATE or replace TABLE `LETestDataset1.telematics`
 (
   DateTime TIMESTAMP,
-  MachineId STRING,
+  SerialNumber STRING,
   GpsLongitude FLOAT64,
   GpsLatitude FLOAT64,
-  Speed INT64,
-  Altitude INT64,
-  Course INT64,
   TotalWorkingHours FLOAT64,
   Engine_rpm FLOAT64,
   EngineLoad FLOAT64,
@@ -52,9 +49,12 @@ CREATE or replace TABLE `LETestDataset1.fendt_data`
 CREATE or replace TABLE `LETestDataset1.joinedData`
 (
   DateTime TIMESTAMP,
-  SerialNumber STRING, #machineID
+  MachineId STRING, #machineID
   GpsLongitude FLOAT64, 
   GpsLatitude FLOAT64,
+  Speed INT64,
+  Altitude INT64,
+  Course INT64,
   TotalWorkingHours FLOAT64,  #TOTAL_VEHICLE_HOURS
   Engine_rpm FLOAT64, #engineSpeed
   EngineLoad FLOAT64, #LoadAtCurrSpeed
