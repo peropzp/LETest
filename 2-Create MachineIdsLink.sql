@@ -25,5 +25,5 @@ union all
 
 select l1.serialnumber as machineId, l1.unit_id
 from linkTW as l1
-where l1.cnt = (select max(l2.cnt) from linkTW as l2 where l1.serialnumber = l2.serialnumber )
+where l1.cnt = (select max(l2.cnt) from linkTW as l2 where l1.serialnumber = l2.serialnumber );
 
