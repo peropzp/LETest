@@ -3,8 +3,8 @@ with
 linkFW as (
   select f.machineId, w.unit_id, count(*) as cnt
   from LETestDataset1.fendt as f, LETestDataset1.wialon as w
-  where round(w.gpsLatitude * 1000000) = round(f.lat * 1000000)
-  and round(w.gpsLongitude * 1000000) = round(f.lng * 1000000)
+  where round(w.gpsLatitude * 1000000) = round(f.gpsLatitude * 1000000)
+  and round(w.gpsLongitude * 1000000) = round(f.gpsLongitude * 1000000)
   and abs(datetime_diff(w.datetime, cast(PARSE_DATETIME('%s', CAST(TRUNC(f.timestamp) AS STRING)) as timestamp), SECOND)) < 10
   and w.speed = 0
   group by f.machineId, w.unit_id),
