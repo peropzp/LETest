@@ -46,7 +46,7 @@ CREATE or replace TABLE `LETestDataset1.fendt_data`
   datas ARRAY<STRUCT<unit STRING, signalGroup STRING, type STRING, values ARRAY<STRUCT<timestamp INT64, value FLOAT64>>, enumerations STRUCT<_4_0 STRING, _0_0 STRING, _1_0 STRING, _2_0 STRING, _3_0 STRING>, count INT64>>
 );
 
-CREATE or replace TABLE `LETestDataset1.joinedData`
+CREATE or replace TABLE LETestDataset1.joinedData
 (
   DateTime TIMESTAMP,
   MachineId STRING, #machineID
@@ -55,6 +55,7 @@ CREATE or replace TABLE `LETestDataset1.joinedData`
   Speed INT64,
   Altitude INT64,
   Course INT64,
+  ###########################3
   TotalWorkingHours FLOAT64,  #TOTAL_VEHICLE_HOURS
   Engine_rpm FLOAT64, #engineSpeed
   EngineLoad FLOAT64, #LoadAtCurrSpeed
@@ -81,14 +82,14 @@ CREATE or replace TABLE `LETestDataset1.joinedData`
   CatalystTankLevel FLOAT64,
   ENGINE_TRIP_FUEL FLOAT64,
   HRSengineHours FLOAT64,
-  REAR_DRAFT STRING,
+  REAR_DRAFT FLOAT64,
   OutdoorTemp FLOAT64,
-  HITCH_POSITION_FRONT STRING,
-  HITCH_POSITION_REAR STRING,
-  PLC_R_Measured_position STRING,
-  PLC_R_Draft STRING,
+  HITCH_POSITION_FRONT FLOAT64,
+  HITCH_POSITION_REAR FLOAT64,
+  PLC_R_Measured_position FLOAT64,
+  PLC_R_Draft FLOAT64,
   TotalFuelUsed FLOAT64,
-  GearOilFilter STRING,
-  WHEEL_SLIP STRING,
-  WORK_ON STRING
+  GearOilFilter FLOAT64,
+  WHEEL_SLIP FLOAT64,
+  WORK_ON FLOAT64
 );
