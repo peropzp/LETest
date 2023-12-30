@@ -1,10 +1,13 @@
-create or replace table LETestDataset1.fendt as
+set @@dataset_project_id = 'letest-409019';
+set @@dataset = 'LETestDataset';
+
+create or replace table fendt as
 
 with 
 unnFendtData as (
   select data.machineId, datas.signalGroup, datas.type, val.timestamp, val.value,
     PARSE_DATETIME('%s', CAST(TRUNC(val.timestamp) AS STRING)) as dt
-  from LETestDataset1.fendt_data as data, unnest(datas) as datas, unnest(values) as val),
+  from fendt_data as data, unnest(datas) as datas, unnest(values) as val),
 pivotedData as (
   select unnFendtData.machineId, unnFendtData.Timestamp,
     AVG(IF(unnFendtData.type = 'TotalDEFConsumption', unnFendtData.value, null)) TotalDEFConsumption ,
@@ -38,7 +41,7 @@ pivotedData as (
   group by unnFendtData.machineId, unnFendtData.timestamp),
 unnGps as (
   SELECT gps.machineId, r.t, r.lat, r.lng
-  FROM LETestDataset1.fendt_gps  as gps, unnest (route) as r)
+  FROM fendt_gps  as gps, unnest (route) as r)
 
 select unnGps.lat as GpsLatitude, unnGps.lng as GpsLongitude, pivotedData.*
   from unnGps, pivotedData
