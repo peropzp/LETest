@@ -1,23 +1,23 @@
 set @@dataset_project_id = 'letest-409019';
 set @@dataset_id = 'LETestDataset';
 
-CREATE TABLE DistanceFuel
+CREATE or replace TABLE DistanceFuel
 (
   date DATE,
   MachineId STRING,
   startDateTime TIMESTAMP,
   stopDateTime TIMESTAMP,
-  multiline STRING,
   RunPointStart GEOGRAPHY,
   RunPointEnd GEOGRAPHY,
   len FLOAT64,
   FuelConsumed FLOAT64
 );
 
-CREATE TABLE Coverage
+CREATE or replace TABLE Coverage
 (
   RunId INT64,
   startDateTime TIMESTAMP,
   stopDateTime TIMESTAMP,
   CoverageMap GEOGRAPHY
 );
+
