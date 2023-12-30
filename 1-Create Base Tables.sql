@@ -1,4 +1,7 @@
-CREATE or replace TABLE `LETestDataset1.telematics`
+set @@dataset_project_id = 'letest-409019';
+set @@dataset_id = 'LETestDataset';
+
+CREATE or replace TABLE telematics
 (
   DateTime TIMESTAMP,
   SerialNumber STRING,
@@ -21,7 +24,7 @@ CREATE or replace TABLE `LETestDataset1.telematics`
   CreeperStatus STRING
 );
 
-CREATE or replace TABLE `LETestDataset1.wialon`
+CREATE or replace TABLE wialon
 (
   unit_id INT64,
   dateTime TIMESTAMP,
@@ -33,20 +36,20 @@ CREATE or replace TABLE `LETestDataset1.wialon`
   course INT64
 );
 
-CREATE or replace TABLE `LETestDataset1.fendt_gps`
+CREATE or replace TABLE fendt_gps
 (
   machineId INT64,
   route ARRAY<STRUCT<t INT64, lat FLOAT64, lng FLOAT64>>
 );
 
-CREATE or replace TABLE `LETestDataset1.fendt_data`
+CREATE or replace TABLE fendt_data
 (
   machineId INT64,
   count INT64,
   datas ARRAY<STRUCT<unit STRING, signalGroup STRING, type STRING, values ARRAY<STRUCT<timestamp INT64, value FLOAT64>>, enumerations STRUCT<_4_0 STRING, _0_0 STRING, _1_0 STRING, _2_0 STRING, _3_0 STRING>, count INT64>>
 );
 
-CREATE or replace TABLE LETestDataset1.joinedData
+CREATE or replace TABLE joinedData
 (
   DateTime TIMESTAMP,
   MachineId STRING, #machineID
