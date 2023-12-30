@@ -1,5 +1,5 @@
 set @@dataset_project_id = 'letest-409019';
-set @@dataset = 'LETestDataset';
+set @@dataset_id = 'LETestDataset';
 
 create or replace table fendt as
 
