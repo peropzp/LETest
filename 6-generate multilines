@@ -61,7 +61,8 @@ IntervalsWithGps as (
 ), 
 joinedStrings as (
   select MachineId, startDateTime, stopDateTime, startLongitude, startLatitude, stopLongitude, stopLatitude, round(sum(timeInSeconds * FuelConsumption_l_h) / 3600, 2) as FuelConsumed , count(*) cnt,
-    concat('LINESTRING(',string_agg(concat(gpsLongitude, ' ', gpsLatitude), ',' order by datetime), ')') as multiline
+    concat('LINESTRING(',string_agg(concat(gpsLongitude, ' ', gpsLatitude), ',' order by datetime), ')') as multiline,
+    concat('POLYGON((',string_agg(concat(gpsLongitude, ' ', gpsLatitude), ',' order by datetime), '))') as polygon,
   from intervalsWithGps
   group by MachineId, startDateTime, stopDateTime, startLongitude, startLatitude, stopLongitude, stopLatitude
 )
@@ -69,6 +70,7 @@ select extract(date from startDateTime) as date, MachineId, startDateTime, stopD
     st_geogpoint(startLongitude, startLatitude) as RunPointStart, 
     st_geogpoint(stopLongitude, stopLatitude) as RunPointEnd, 
     st_geogfromtext(multiline, make_valid => TRUE) as multiline,
+    st_geogfromtext(polygon, make_valid => TRUE) as polygon,
     FuelConsumed
 from joinedStrings
 where cnt>10
