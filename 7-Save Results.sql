@@ -2,15 +2,20 @@ set @@dataset_project_id = 'letest-409019';
 set @@dataset_id = 'LETestDataset';
 
 insert into DistanceFuel 
-select date, MachineId, startDateTime, stopDateTime,  
-    st_geogpoint(startLongitude, startLatitude) as RunPointStart, 
-    st_geogpoint(stopLongitude, stopLatitude) as RunPointEnd, 
-    st_length(st_geogfromtext(multiline,make_valid => TRUE)) as len, 
-    FuelConsumed
+select date, 
+        MachineId, 
+        startDateTime, 
+        stopDateTime,  
+        RunPointStart, 
+        RunPointEnd, 
+        st_length(multiline), 
+        FuelConsumed
 from multilines;
 
 insert into Coverage
-select 0, startDateTime, stopDatetime, st_boundary(multiline)
+select 
+    case when (select max(runID) from Coverage) is null then ROW_NUMBER() OVER()
+    else ROW_NUMBER() OVER() + (select max(runID) from Coverage)
+    end, startDateTime, stopDatetime, polygon
 from multilines;
 
-update Coverage set RunId = row_number() Over() where runId=0;
