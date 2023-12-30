@@ -69,7 +69,6 @@ select extract(date from startDateTime) as date, MachineId, startDateTime, stopD
     st_geogpoint(startLongitude, startLatitude) as RunPointStart, 
     st_geogpoint(stopLongitude, stopLatitude) as RunPointEnd, 
     st_geogfromtext(multiline, make_valid => TRUE) as multiline,
-    st_length(st_geogfromtext(multiline,make_valid => TRUE)) as len,
     FuelConsumed
 from joinedStrings
 where cnt>10
