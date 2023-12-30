@@ -1,4 +1,4 @@
-bq load --source_format=CSV --skip_leading_rows=1 LETestDataset1.wialon gs://letest_bucket_1/wialon_dump.csv
-bq load --source_format=CSV --skip_leading_rows=1 LETestDataset1.telematics gs://letest_bucket_1/telematics_dump.csv
-bq load --source_format=NEWLINE_DELIMITED_JSON LETestDataset1.fendt_data gs://letest_bucket_1/fendt_data_partitioned.json
-bq load --source_format=NEWLINE_DELIMITED_JSON LETestDataset1.fendt_gps gs://letest_bucket_1/fendt_gps.json
+bq load --source_format=CSV --skip_leading_rows=1 LETestDataset.wialon gs://letest_bucket_1/wialon_dump.csv
+bq load --source_format=CSV --skip_leading_rows=1 LETestDataset.telematics gs://letest_bucket_1/telematics_dump.csv
+bq load --source_format=NEWLINE_DELIMITED_JSON LETestDataset.fendt_data gs://letest_bucket_1/fendt_data_partitioned.json
+bq load --source_format=NEWLINE_DELIMITED_JSON LETestDataset.fendt_gps gs://letest_bucket_1/fendt_gps.json
