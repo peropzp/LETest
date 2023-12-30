@@ -1,8 +1,11 @@
-create or replace table LETestDataset1.polygons as
+set @@dataset_project_id = 'letest-409019';
+set @@dataset_id = 'LETestDataset';
+
+create or replace table multilines as
 with
 removeNull as (
   select * 
-  from LETestDataset1.joinedData
+  from joinedData
   where GpsLatitude is not null and GpsLongitude is not null
 ),
 prevnext as (
