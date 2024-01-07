@@ -1,0 +1,467 @@
+CREATE OR REPLACE PROCEDURE `letest-409019.LETestDataset.createResultTables`()
+begin
+  set @@dataset_project_id = 'letest-409019';
+  set @@dataset_id = 'LETestDataset';
+
+  CREATE or replace TABLE LETestDataset.DistanceFuel
+  (
+    date DATE,
+    MachineId STRING,
+    startDateTime TIMESTAMP,
+    stopDateTime TIMESTAMP,
+    RunPointStart GEOGRAPHY,
+    RunPointEnd GEOGRAPHY,
+    len FLOAT64,
+    FuelConsumed FLOAT64
+  );
+
+  CREATE or replace TABLE LETestDataset.Coverage
+  (
+    RunId INT64,
+    startDateTime TIMESTAMP,
+    stopDateTime TIMESTAMP,
+    CoverageMap GEOGRAPHY
+  );
+end;
+
+#############################################################################################
+
+CREATE OR REPLACE PROCEDURE `letest-409019.LETestDataset.createBaseTables`()
+begin
+  set @@dataset_project_id = 'letest-409019';
+  set @@dataset_id = 'LETestDataset';
+
+  CREATE or replace TABLE LETestDataset.telematics
+  (
+    DateTime TIMESTAMP,
+    SerialNumber STRING,
+    GpsLongitude FLOAT64,
+    GpsLatitude FLOAT64,
+    TotalWorkingHours FLOAT64,
+    Engine_rpm FLOAT64,
+    EngineLoad FLOAT64,
+    FuelConsumption_l_h FLOAT64,
+    SpeedGearbox_km_h FLOAT64,
+    SpeedRadar_km_h FLOAT64,
+    TempCoolant_C FLOAT64,
+    PtoFront_rpm FLOAT64,
+    PtoRear_rpm FLOAT64,
+    GearShift FLOAT64,
+    TempAmbient_C FLOAT64,
+    ParkingBreakStatus STRING,
+    DifferentialLockStatus STRING,
+    AllWheelDriveStatus STRING,
+    CreeperStatus STRING
+  );
+
+  CREATE or replace TABLE LETestDataset.wialon
+  (
+    unit_id INT64,
+    dateTime TIMESTAMP,
+    driverId INT64,
+    gpsLongitude FLOAT64,
+    gpsLatitude FLOAT64,
+    speed INT64,
+    altitude INT64,
+    course INT64
+  );
+
+  CREATE or replace TABLE LETestDataset.fendt_gps
+  (
+    machineId INT64,
+    route ARRAY<STRUCT<t INT64, lat FLOAT64, lng FLOAT64>>
+  );
+
+  CREATE or replace TABLE LETestDataset.fendt_data
+  (
+    machineId INT64,
+    count INT64,
+    datas ARRAY<STRUCT<unit STRING, signalGroup STRING, type STRING, values ARRAY<STRUCT<timestamp INT64, value FLOAT64>>, enumerations STRUCT<_4_0 STRING, _0_0 STRING, _1_0 STRING, _2_0 STRING, _3_0 STRING>, count INT64>>
+  );
+
+  CREATE or replace TABLE LETestDataset.joinedData
+  (
+    DateTime TIMESTAMP,
+    MachineId STRING, #machineID
+    GpsLongitude FLOAT64, 
+    GpsLatitude FLOAT64,
+    Speed INT64,
+    Altitude INT64,
+    Course INT64,
+    ###########################3
+    TotalWorkingHours FLOAT64,  #TOTAL_VEHICLE_HOURS
+    Engine_rpm FLOAT64, #engineSpeed
+    EngineLoad FLOAT64, #LoadAtCurrSpeed
+    FuelConsumption_l_h FLOAT64, #fuelRate
+    SpeedGearbox_km_h FLOAT64, #WheelBasedVehicleSpeed
+    SpeedRadar_km_h FLOAT64, 
+    TempCoolant_C FLOAT64,  #CoolantTemperature
+    PtoFront_rpm FLOAT64,
+    PtoRear_rpm FLOAT64,
+    GearShift FLOAT64,
+    TempAmbient_C FLOAT64,
+    ParkingBreakStatus STRING,
+    DifferentialLockStatus STRING,  #DiffLockState
+    AllWheelDriveStatus STRING,
+    CreeperStatus STRING,
+    ####################
+    TotalDEFConsumption FLOAT64 ,
+    TransOilTemp FLOAT64,
+    OilPressure FLOAT64,
+    HYDR_OIL_LEVEL FLOAT64,
+    FuelLevel FLOAT64,
+    BatteryPotentialSwitched FLOAT64,
+    AirFilter FLOAT64,
+    CatalystTankLevel FLOAT64,
+    ENGINE_TRIP_FUEL FLOAT64,
+    HRSengineHours FLOAT64,
+    REAR_DRAFT FLOAT64,
+    OutdoorTemp FLOAT64,
+    HITCH_POSITION_FRONT FLOAT64,
+    HITCH_POSITION_REAR FLOAT64,
+    PLC_R_Measured_position FLOAT64,
+    PLC_R_Draft FLOAT64,
+    TotalFuelUsed FLOAT64,
+    GearOilFilter FLOAT64,
+    WHEEL_SLIP FLOAT64,
+    WORK_ON FLOAT64
+  );
+end;
+
+############################################################################################
+
+CREATE OR REPLACE PROCEDURE `letest-409019.LETestDataset.createFendt`()
+begin
+
+  set @@dataset_project_id = 'letest-409019';
+  set @@dataset_id = 'LETestDataset';
+
+  create or replace table LETestDataset.fendt as
+
+  with 
+  unnFendtData as (
+    select data.machineId, datas.signalGroup, datas.type, val.timestamp, val.value,
+      PARSE_DATETIME('%s', CAST(TRUNC(val.timestamp) AS STRING)) as dt
+    from LETestDataset.fendt_data as data, unnest(datas) as datas, unnest(values) as val),
+  pivotedData as (
+    select unnFendtData.machineId, unnFendtData.Timestamp,
+      AVG(IF(unnFendtData.type = 'TotalDEFConsumption', unnFendtData.value, null)) TotalDEFConsumption ,
+      AVG(IF(unnFendtData.type = 'WheelBasedVehicleSpeed', unnFendtData.value, null)) SpeedGearbox_km_h,
+      AVG(IF(unnFendtData.type = 'TransOilTemp', unnFendtData.value, null)) TransOilTemp,
+      AVG(IF(unnFendtData.type = 'OilPressure', unnFendtData.value, null)) OilPressure,
+      AVG(IF(unnFendtData.type = 'HYDR_OIL_LEVEL', unnFendtData.value, null)) HYDR_OIL_LEVEL,
+      AVG(IF(unnFendtData.type = 'LoadAtCurrSpeed', unnFendtData.value, null)) EngineLoad,
+      AVG(IF(unnFendtData.type = 'FuelLevel', unnFendtData.value, null)) FuelLevel,
+      AVG(IF(unnFendtData.type = 'BatteryPotentialSwitched', unnFendtData.value, null)) BatteryPotentialSwitched,
+      AVG(IF(unnFendtData.type = 'AirFilter', unnFendtData.value, null)) AirFilter,
+      AVG(IF(unnFendtData.type = 'EngineSpeed', unnFendtData.value, null)) Engine_rpm,
+      AVG(IF(unnFendtData.type = 'CoolantTemperature', unnFendtData.value, null)) TempCoolant_C,
+      AVG(IF(unnFendtData.type = 'CatalystTankLevel', unnFendtData.value, null)) CatalystTankLevel,
+      AVG(IF(unnFendtData.type = 'ENGINE_TRIP_FUEL', unnFendtData.value, null)) ENGINE_TRIP_FUEL,
+      AVG(IF(unnFendtData.type = 'FuelRate', unnFendtData.value, null)) FuelConsumption_l_h,
+      AVG(IF(unnFendtData.type = 'TOTAL_VEHICLE_HOURS', unnFendtData.value, null)) TotalWorkingHours,
+      AVG(IF(unnFendtData.type = 'HRSengineHours', unnFendtData.value, null)) HRSengineHours,
+      AVG(IF(unnFendtData.type = 'REAR_DRAFT', unnFendtData.value, null)) REAR_DRAFT,
+      AVG(IF(unnFendtData.type = 'OutdoorTemp', unnFendtData.value, null)) OutdoorTemp,
+      AVG(IF(unnFendtData.type = 'HITCH_POSITION_FRONT', unnFendtData.value, null)) HITCH_POSITION_FRONT,
+      AVG(IF(unnFendtData.type = 'HITCH_POSITION_REAR', unnFendtData.value, null)) HITCH_POSITION_REAR,
+      AVG(IF(unnFendtData.type = 'PLC_R_Measured_position', unnFendtData.value, null)) PLC_R_Measured_position,
+      AVG(IF(unnFendtData.type = 'PLC_R_Draft', unnFendtData.value, null)) PLC_R_Draft,
+      AVG(IF(unnFendtData.type = 'TotalFuelUsed', unnFendtData.value, null)) TotalFuelUsed,
+      AVG(IF(unnFendtData.type = 'GearOilFilter', unnFendtData.value, null)) GearOilFilter,
+      AVG(IF(unnFendtData.type = 'WHEEL_SLIP', unnFendtData.value, null)) WHEEL_SLIP,
+      AVG(IF(unnFendtData.type = 'WORK_ON', unnFendtData.value, null)) WORK_ON,
+      AVG(IF(unnFendtData.type = 'DiffLockState', unnFendtData.value, null)) DifferentialLockStatus
+    from unnFendtData
+    group by unnFendtData.machineId, unnFendtData.timestamp),
+  unnGps as (
+    SELECT gps.machineId, r.t, r.lat, r.lng
+    FROM LETestDataset.fendt_gps  as gps, unnest (route) as r)
+
+  select unnGps.lat as GpsLatitude, unnGps.lng as GpsLongitude, pivotedData.*
+    from unnGps, pivotedData
+    where unnGps.machineId = pivotedData.MachineId and unnGps.t = pivotedData.timestamp;
+end;
+
+###############################################################################################
+
+CREATE OR REPLACE PROCEDURE `letest-409019.LETestDataset.createMachineIdLink`()
+begin
+  set @@dataset_project_id = 'letest-409019';
+  set @@dataset_id = 'LETestDataset';
+
+  create or replace table LETestDataset.MachineIdLink as
+  with 
+  linkFW as (
+    select f.machineId, w.unit_id, count(*) as cnt
+    from LETestDataset.fendt as f, LETestDataset.wialon as w
+    where round(w.gpsLatitude * 1000000) = round(f.gpsLatitude * 1000000)
+    and round(w.gpsLongitude * 1000000) = round(f.gpsLongitude * 1000000)
+    and abs(datetime_diff(w.datetime, cast(PARSE_DATETIME('%s', CAST(TRUNC(f.timestamp) AS STRING)) as timestamp), SECOND)) < 10
+    and w.speed = 0
+    group by f.machineId, w.unit_id),
+  linkTW as 
+    (select t.serialnumber, w.unit_id, count(*) as cnt
+      from LETestDataset.telematics as t, LETestDataset.wialon as w
+      where round(w.gpsLatitude * 100000) = round(t.gpsLatitude * 100000)
+        and round(w.gpsLongitude * 100000) = round(t.gpsLongitude * 100000)
+        and abs(datetime_diff(w.datetime, t.datetime, SECOND)) < 120
+        and w.speed = 0
+      group by t.serialnumber, w.unit_id)
+
+  select cast(l1.machineId as STRING) as machineId, l1.unit_id
+  from linkFW as l1
+  where l1.cnt = (select max(l2.cnt) from linkFW as l2 where l1.machineId = l2.machineId )
+
+  union all
+
+  select l1.serialnumber as machineId, l1.unit_id
+  from linkTW as l1
+  where l1.cnt = (select max(l2.cnt) from linkTW as l2 where l1.serialnumber = l2.serialnumber );
+end;
+
+###################################################################################################
+
+CREATE OR REPLACE PROCEDURE `letest-409019.LETestDataset.populateJoinedData`()
+begin
+  set @@dataset_project_id = 'letest-409019';
+  set @@dataset_id = 'LETestDataset';
+
+  delete from LETestDataset.joinedData where 1=1;
+
+  insert into LETestDataset.joinedData
+  with  
+    f as (select timestamp as ft, machineId from LETestDataset.fendt order by machineId, ft),
+    t as (select date_diff(datetime, timestamp('1970-01-01 00:00:00'), second) as tt, SerialNumber as machineId from LETestDataset.telematics order by machineId, tt),
+    w as (select date_diff(datetime, timestamp('1970-01-01 00:00:00'), second) as wt, unit_id from LETestDataset.wialon order by unit_id, wt),
+    mfwjoined as (
+      select f.machineid, f.ft, w.wt, w.unit_id
+      from f
+      inner join MachineIdLink as fw on fw.machineId = cast(f.machineId as STRING)
+      inner join w on w.unit_id = fw.unit_id and round(w.wt / 10) = round(f.ft / 10)),
+    fwjoin as (
+      select mfwjoined.machineId, mfwjoined.unit_id, mfwjoined.wt, max(mfwjoined.ft) as ft
+      from mfwjoined 
+      group by mfwjoined.machineId, mfwjoined.unit_id, mfwjoined.wt
+      order by mfwjoined.machineId, mfwjoined.unit_id, mfwjoined.wt),
+    mtwjoined as (
+      select t.machineid, t.tt, w.wt, w.unit_id
+      from t
+      inner join MachineIdLink as fw on fw.machineId = cast(t.machineId as STRING)
+      inner join w on w.unit_id = fw.unit_id and round(w.wt / 10) = round(t.tt / 10)),
+    twjoin as (
+      select mtwjoined.machineId, mtwjoined.unit_id, mtwjoined.wt, max(mtwjoined.tt) as tt
+      from mtwjoined 
+      group by mtwjoined.machineId, mtwjoined.unit_id, mtwjoined.wt
+      order by mtwjoined.machineId, mtwjoined.unit_id, mtwjoined.wt)
+
+  select
+    w.datetime,
+    cast(f.MachineId as STRING), #machineID
+    w.GpsLongitude , 
+    w.GpsLatitude ,
+    w.Speed ,
+    w.Altitude ,
+    w.Course ,
+    ##########################
+    f.TotalWorkingHours ,  #TOTAL_VEHICLE_HOURS
+    f.Engine_rpm , #engineSpeed
+    f.EngineLoad , #LoadAtCurrSpeed
+    f.FuelConsumption_l_h , #fuelRate
+    f.SpeedGearbox_km_h , #WheelBasedVehicleSpeed
+    null, 
+    f.TempCoolant_C ,  #CoolantTemperature
+    null,
+    null,
+    null,
+    null,
+    null,
+    cast(f.DifferentialLockStatus as string) ,  #DiffLockState
+    null,
+    null,
+    ####################
+    f.TotalDEFConsumption  ,
+    f.TransOilTemp ,
+    f.OilPressure ,
+    f.HYDR_OIL_LEVEL ,
+    f.FuelLevel ,
+    f.BatteryPotentialSwitched ,
+    f.AirFilter ,
+    f.CatalystTankLevel ,
+    f.ENGINE_TRIP_FUEL ,
+    f.HRSengineHours ,
+    f.REAR_DRAFT ,
+    f.OutdoorTemp ,
+    f.HITCH_POSITION_FRONT ,
+    f.HITCH_POSITION_REAR ,
+    f.PLC_R_Measured_position ,
+    f.PLC_R_Draft ,
+    f.TotalFuelUsed ,
+    f.GearOilFilter ,
+    f.WHEEL_SLIP ,
+    f.WORK_ON 
+  from LETestDataset.fendt as f, LETestDataset.wialon as w, fwjoin
+  where f.machineId = fwjoin.machineID and f.timestamp = fwjoin.ft 
+  and w.unit_id = fwjoin.unit_id and w.datetime = cast( PARSE_DATETIME('%s', CAST(TRUNC(fwjoin.wt) AS STRING)) as timestamp)
+
+  union all
+
+  select
+    w.datetime,
+    t.SerialNumber, #machineID
+    w.GpsLongitude , 
+    w.GpsLatitude ,
+    w.Speed ,
+    w.Altitude ,
+    w.Course,
+    ##########################3 
+    TotalWorkingHours ,  #TOTAL_VEHICLE_HOURS
+    Engine_rpm , #engineSpeed
+    EngineLoad , #LoadAtCurrSpeed
+    FuelConsumption_l_h , #fuelRate
+    SpeedGearbox_km_h , #WheelBasedVehicleSpeed
+    SpeedRadar_km_h , 
+    TempCoolant_C ,  #CoolantTemperature
+    PtoFront_rpm ,
+    PtoRear_rpm ,
+    GearShift ,
+    TempAmbient_C ,
+    ParkingBreakStatus ,
+    DifferentialLockStatus ,  #DiffLockState
+    AllWheelDriveStatus ,
+    CreeperStatus ,
+    ####################
+    null,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null ,
+    null 
+  from LETestDataset.telematics as t, LETestDataset.wialon as w, twjoin
+  where t.SerialNumber = twjoin.machineID and date_diff(t.datetime, timestamp('1970-01-01 00:00:00'), SECOND) = twjoin.tt 
+  and w.unit_id = twjoin.unit_id and w.datetime = cast( PARSE_DATETIME('%s', CAST(TRUNC(twjoin.wt) AS STRING)) as timestamp);
+end;
+
+#####################################################################################################
+
+CREATE OR REPLACE PROCEDURE `letest-409019.LETestDataset.createMultilines`()
+begin
+  set @@dataset_project_id = 'letest-409019';
+  set @@dataset_id = 'LETestDataset';
+
+  create or replace table LETestDataset.multilines as
+  with
+  removeNull as (
+    select * 
+    from LETestDataset.joinedData
+    where GpsLatitude is not null and GpsLongitude is not null
+  ),
+  prevnext as (
+    select machineId, DateTime, gpsLongitude, gpsLatitude,
+    LEAD(gpsLongitude) OVER (PARTITION BY MachineId ORDER BY datetime) AS nextGpsLongitude,
+    LAG(gpsLongitude) OVER (PARTITION BY MachineId ORDER BY datetime) AS prevGpsLongitude,
+    LEAD(gpsLatitude) OVER (PARTITION BY MachineId ORDER BY datetime) AS nextGpsLatitude,
+    LAG(gpsLatitude) OVER (PARTITION BY MachineId ORDER BY datetime) AS prevGpsLatitude,
+    LEAD(datetime) OVER (PARTITION BY MachineId ORDER BY datetime) AS nextDatetime,
+    LAG(datetime) OVER (PARTITION BY MachineId ORDER BY datetime) AS prevDatetime
+    from removeNull
+    order by MachineId, datetime
+  ),
+  addStartStop as (
+    select machineId, datetime, gpsLongitude, gpsLatitude,
+    case 
+        when (abs(gpsLongitude * 500 - prevGpsLongitude * 500) >1) then 'start'
+        when (abs(gpsLatitude * 500 - prevGpsLatitude * 500)>1) then 'start'
+        when (abs(gpsLongitude * 500 - nextGpsLongitude * 500)>1) then 'stop'
+        when (abs(gpsLatitude * 500 - nextGpsLatitude * 500)>1) then 'stop'
+        when (abs(date_diff(datetime, prevDatetime, second))>600) then 'start'
+        when (abs(date_diff(datetime, nextDatetime, second))>600) then 'stop'
+        else ''
+    end as running
+    from prevnext
+    order by machineId, datetime
+  ),
+  startStop as (
+    select * from addStartStop
+    where running = 'start' or running = 'stop'
+  ),
+  intervals as (
+    select MachineId, datetime as startDateTime, running as startState, gpsLongitude as startLongitude, gpsLatitude as startLatitude,
+          Lead(datetime) over (PARTITION BY MachineId ORDER BY datetime) AS stopDateTime,
+          Lead(running) over (PARTITION BY MachineId ORDER BY datetime) AS stopState,
+          Lead(gpsLongitude) over (PARTITION BY MachineId ORDER BY datetime) AS stopLongitude,
+          Lead(gpsLatitude) over (PARTITION BY MachineId ORDER BY datetime) AS stopLatitude
+    from startstop
+  ),
+  fixedIntervals as (
+    select * from intervals where startState = 'start' and stopState = 'stop'
+  ),
+  removedNullWithTime as (
+    select r.*, date_diff(r.DateTime, Lag(r.datetime) over (PARTITION BY r.MachineId ORDER BY r.datetime), SECOND) as timeInSeconds
+    from removeNull as r
+  ),
+  IntervalsWithGps as (
+    select i.MachineId, i.startDateTime, i.StopDateTime, i.startLongitude, i.startLatitude, i.stopLongitude, i.stopLatitude, j.datetime, 
+        j.gpsLongitude, j.gpsLatitude, j.FuelConsumption_l_h, j.timeInSeconds
+    from fixedIntervals as i, removedNullWithTime as j
+    where i.MachineId = j.MachineId and j.datetime > i.startDateTime and j.datetime < i.stopDateTime
+    order by MachineId, i.startDateTime, j.datetime 
+  ), 
+  joinedStrings as (
+    select MachineId, startDateTime, stopDateTime, startLongitude, startLatitude, stopLongitude, stopLatitude, round(sum(timeInSeconds * FuelConsumption_l_h) / 3600, 2) as FuelConsumed , count(*) cnt,
+      concat('LINESTRING(',string_agg(concat(gpsLongitude, ' ', gpsLatitude), ',' order by datetime), ')') as multiline,
+      concat('POLYGON((',string_agg(concat(gpsLongitude, ' ', gpsLatitude), ',' order by datetime), '))') as polygon,
+    from intervalsWithGps
+    group by MachineId, startDateTime, stopDateTime, startLongitude, startLatitude, stopLongitude, stopLatitude
+  )
+  select extract(date from startDateTime) as date, MachineId, startDateTime, stopDateTime, 
+      st_geogpoint(startLongitude, startLatitude) as RunPointStart, 
+      st_geogpoint(stopLongitude, stopLatitude) as RunPointEnd, 
+      st_geogfromtext(multiline, make_valid => TRUE) as multiline,
+      st_geogfromtext(polygon, make_valid => TRUE) as polygon,
+      FuelConsumed
+  from joinedStrings
+  where cnt>10;
+end;
+
+#####################################################################################################
+
+CREATE OR REPLACE PROCEDURE `letest-409019.LETestDataset.saveResults`()
+begin
+    set @@dataset_project_id = 'letest-409019';
+    set @@dataset_id = 'LETestDataset';
+
+    insert into LETestDataset.DistanceFuel 
+    select date, 
+            MachineId, 
+            startDateTime, 
+            stopDateTime,  
+            RunPointStart, 
+            RunPointEnd, 
+            st_length(multiline), 
+            FuelConsumed
+    from LETestDataset.multilines;
+
+    insert into LETestDataset.Coverage
+    select 
+        case when (select max(runID) from LETestDataset.Coverage) is null then ROW_NUMBER() OVER()
+        else ROW_NUMBER() OVER() + (select max(runID) from LETestDataset.Coverage)
+        end, startDateTime, stopDatetime, polygon
+    from LETestDataset.multilines;
+end;
+
+
