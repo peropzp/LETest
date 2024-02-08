@@ -4,18 +4,18 @@ set @@dataset_id = 'LETestDataset';
 
 create or replace table turns as
 with 
-rndCourse as (
+rndCourse as (  #round course
   select machineId, datetime, round(course / 20) * 20 as course
   from cleanedGsData
   order by MachineId, datetime
 ),
-prevNextCourse as (
+prevNextCourse as ( #prev&next point course
   select machineId, datetime, course,
   LEAD(course) OVER (PARTITION BY MachineId ORDER BY datetime) AS nextCourse,
   LAG(course) OVER (PARTITION BY MachineId ORDER BY datetime) AS prevCourse
   from rndCourse
 ),
-addStartStop as (
+addStartStop as ( #add start and stop when couse changes 
   select machineId, datetime,
   case 
       when (course <> prevCourse and course = nextCourse) then 'start'
@@ -25,18 +25,18 @@ addStartStop as (
   from prevNextCourse
   order by machineId, datetime
 ),
-startStop as (
+startStop as ( #select only start/stop points
   select * from addStartStop
   where turn = 'start' or turn = 'stop'
 ),
-intervals as (
+intervals as ( #get start/stop in one line
   select machineId, datetime as startTurnTime, turn as startTurnState, 
         Lead(datetime) over (PARTITION BY MachineId ORDER BY datetime) AS stopTurnTime,
         Lead(turn) over (PARTITION BY MachineId ORDER BY datetime) AS stopTurnState,
   from startstop
 )
 
-select machineId, startTurnTime, stopTurnTime
+select machineId, startTurnTime, stopTurnTime #get only intervals which start with start, stop with stop and are last a leatst 60s
   from intervals 
   where startTurnState = 'start' and stopTurnState = 'stop'
   and date_diff(stopTurnTime, startTurnTime, SECOND) > 60
@@ -45,7 +45,7 @@ select machineId, startTurnTime, stopTurnTime
 
 ###############################################################
 
-create or replace table TurnsGps as
+create or replace table TurnsGps as #get gps data for start/stop intervals
   select gd.MachineId, t.startTurnTime, t.stopTurnTime,
           gd.datetime, gd.gpsLongitude, gd.gpsLatitude, gd.course
   
@@ -56,7 +56,7 @@ create or replace table TurnsGps as
 
 #############################################################
 
-create or replace table turnStats as
+create or replace table turnStats as #get point count, avg course, midpoint for intervals
 select machineId, startTurnTime, stopTurnTime,
       count(*) as cnt, avg(course) as avgCourse,
       ST_GEOGFROMTEXT(
@@ -70,13 +70,13 @@ select machineId, startTurnTime, stopTurnTime,
 
 ###############################################################################333333
 
-create or replace table WorkTimes as
+create or replace table WorkTimes as #get intervals with at least 20 points
 with courseRounded as (
   select machineId, startTurnTime, stopTurnTime, midPoint, round(avgCourse/20)*20 as rndCourse 
   from turnStats
   where cnt > 20
 ),
-prevNextTurns as (
+prevNextTurns as ( #get prev and next turn interval in one line
   select machineId, startTurnTime, stopTurnTime, midPoint, rndCourse,
     Lead(rndCourse) over (PARTITION BY MachineId ORDER BY startTurnTime) AS nextCourse,
     Lead(midPoint) over (PARTITION BY MachineId ORDER BY startTurnTime) AS nextMidPoint,
@@ -88,13 +88,13 @@ prevNextTurns as (
     Lag(stopTurnTime) over (PARTITION BY MachineId ORDER BY startTurnTime) AS prevStopTurnTime,
     from courseRounded
 ),
-addWorkStartStop as (
+addWorkStartStop as ( #add start and stop markers for turns according to oposite rndCourse 
   select machineId, startTurnTime, stopTurnTime,
       case 
       when (abs(rndCourse - prevCourse) <> 180 and abs(rndCourse - nextCourse) = 180) then 'start'
       when (abs(rndCourse - prevCourse) = 180 and abs(rndCourse - nextCourse) <> 180) then 'stop'
-      when abs(date_diff(prevStopTurnTime, startTurnTime, SECOND)) > 300 then 'start'
-      when abs(date_diff(nextStartTurnTime, stopTurnTime, SECOND)) > 300 then 'stop'
+ #     when abs(date_diff(prevStopTurnTime, startTurnTime, SECOND)) > 300 then 'start'
+ #     when abs(date_diff(nextStartTurnTime, stopTurnTime, SECOND)) > 300 then 'stop'
       else ''
   end as working
   from prevNextTurns
@@ -108,9 +108,20 @@ joinStartStops as (
     lead(stopTurnTime) over (PARTITION BY machineId order by startTurnTime) as stopWorkingTime, 
     lead(working) over (PARTITION BY machineId order by startTurnTime) as stopWorking
   from filterWorkStartStop
+),
+filterStarStopOrder as (
+  select * from joinStartStops
+  where startWorking = 'start' and stopWorking = 'stop'
+),
+joinWorkTimesWithTurnStats as (
+  select wt.machineId, wt.startWorkingTime, wt.stopWorkingTime, count(*) cnt
+  from filterStarStopOrder as wt, turnStats as ts
+  where wt.machineId = ts.machineId and wt.startWorkingTime <= ts.startTurnTime and wt.stopWorkingTime >= ts.stopTurnTime
+  group by wt.machineId, wt.startWorkingTime, wt.stopWorkingTime
 )
-select * from joinStartStops
-where startWorking = 'start' and stopWorking = 'stop'
+select machineId, startWorkingTime, stopWorkingTime
+from joinWorkTimesWithTurnStats
+where cnt > 3
 ;
 
 #####################################################################
