@@ -80,8 +80,12 @@ prevNextTurns as (
   select machineId, startTurnTime, stopTurnTime, midPoint, rndCourse,
     Lead(rndCourse) over (PARTITION BY MachineId ORDER BY startTurnTime) AS nextCourse,
     Lead(midPoint) over (PARTITION BY MachineId ORDER BY startTurnTime) AS nextMidPoint,
+    Lead(startTurnTime) over (PARTITION BY MachineId ORDER BY startTurnTime) AS nextStartTurnTime,
+    Lead(stopTurnTime) over (PARTITION BY MachineId ORDER BY startTurnTime) AS nextStopTurnTime,
     Lag(rndCourse) over (PARTITION BY MachineId ORDER BY startTurnTime) AS prevCourse,
-    Lag(midPoint) over (PARTITION BY MachineId ORDER BY startTurnTime) AS prevMidPoint
+    Lag(midPoint) over (PARTITION BY MachineId ORDER BY startTurnTime) AS prevMidPoint,
+    Lag(startTurnTime) over (PARTITION BY MachineId ORDER BY startTurnTime) AS prevStartTurnTime,
+    Lag(stopTurnTime) over (PARTITION BY MachineId ORDER BY startTurnTime) AS prevStopTurnTime,
     from courseRounded
 ),
 addWorkStartStop as (
@@ -89,6 +93,8 @@ addWorkStartStop as (
       case 
       when (abs(rndCourse - prevCourse) <> 180 and abs(rndCourse - nextCourse) = 180) then 'start'
       when (abs(rndCourse - prevCourse) = 180 and abs(rndCourse - nextCourse) <> 180) then 'stop'
+      when abs(date_diff(prevStopTurnTime, startTurnTime, SECOND)) > 300 then 'start'
+      when abs(date_diff(nextStartTurnTime, stopTurnTime, SECOND)) > 300 then 'stop'
       else ''
   end as working
   from prevNextTurns
